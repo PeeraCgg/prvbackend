@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("EXTERNAL_URL") //  DATABASE_URL ใช้เชื่อม local
+}
+
+model Prv_Users {
+  id          Int         @id @default(autoincrement())
+  firstname   String?
+  lastname    String?
+  mobile      String?     @unique
+  birthday    DateTime?
+  email       String?     @unique
+  isVerified  Boolean?     @default(false) // เก็บสถานะการยืนยัน OTP
+  lineUserId   String?     @unique // เพิ่มฟิลด์นี้เพื่อเก็บ LINE User ID
+  pdpa        Prv_Pdpa?   // ความสัมพันธ์ 1:1 ไปยัง Prv_Pdpa
+  otps        Prv_Otp[]   // ความสัมพันธ์ 1:N ไปยังตาราง Otp
+  userStatus  Prv_Status? // ความสัมพันธ์ 1:1 กับ Prv_Status
+
+    // ความสัมพันธ์กับ PRV_PRIVILEGE (1:N)
+  privileges     Prv_Privilege[]    // ผู้ใช้คนหนึ่งอาจมีหลาย privilege (เช่นโปรแกรมสะสมแต้มต่างกัน)
+
+  // ความสัมพันธ์กับ PRV_TOTAL_EXPENSE (1:N)
+  totalExpenses  Prv_Total_Expense[] // ผู้ใช้คนหนึ่งอาจมีการใช้จ่ายหลายรายการ
+
+  // ความสัมพันธ์กับ PRV_HISTORY (1:N)
+  history        Prv_History[]      // ผู้ใช้สามารถแลกสินค้าได้หลายครั้ง
+}
+
+model Prv_Pdpa{
+  id Int @id @default(autoincrement())
+  checkbox1 Boolean
+  createdAt DateTime @default(now())
+  userId    Int       @unique
+
+  user      Prv_Users @relation(fields: [userId], references: [id]) // ความสัมพันธ์กลับไปยัง Prv_Users
+
+}
+
+model Prv_Otp{
+  id        Int       @id @default(autoincrement())
+  code      String    // รหัส OTP
+  expiresAt DateTime  // เวลา OTP หมดอายุ
+  userId    Int?   @unique    // ความสัมพันธ์กับ Prv_Users
+
+  user      Prv_Users? @relation(fields: [userId], references: [id]) // เชื่อมกับ Prv_Users
+
+}
+
+model Prv_Status {
+  id     Int       @id @default(autoincrement())
+  userId Int       @unique // เชื่อมโยงกับ Prv_Users
+  status Int       // สถานะของผู้ใช้
+  user   Prv_Users @relation(fields: [userId], references: [id]) // เชื่อมกับ Prv_Users
+}
+model Prv_Privilege {
+  id                Int           @id @default(autoincrement())
+  user              Prv_Users     @relation(fields: [userId], references: [id])
+  userId            Int
+  prvExpiredDate    DateTime?
+  prvLicenseId      Int?
+  prvType           String        // เช่น S, G, P,  D
+  currentAmount     Float
+  totalAmountPerYear Float
+  currentPoint      Int
+}
+model Prv_Total_Expense {
+  id               Int           @id @default(autoincrement())
+  user             Prv_Users     @relation(fields: [userId], references: [id])
+  userId           Int
+  transactionDate  DateTime
+  expenseAmount    Float
+  prvType          String        // เช่น S, G, P, M
+  expensePoint     Int
+}
+model Prv_Product {
+  id           Int            @id @default(autoincrement())
+  productName  String
+  point        Int            // คะแนนที่ใช้ในการแลก
+  histories    Prv_History[]  // ความสัมพันธ์ 1:N กับ PRV_HISTORY
+}
+
+model Prv_History {
+  id              Int           @id @default(autoincrement())
+  transactionDate DateTime      // วันที่แลกสินค้า
+  user            Prv_Users     @relation(fields: [userId], references: [id])
+  userId          Int
+  product         Prv_Product   @relation(fields: [productId], references: [id])
+  productId       Int
+}
+model Prv_Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique // ชื่อผู้ใช้งาน (ไม่ซ้ำกัน)
+  password  String   // รหัสผ่าน (ควรเก็บเป็น hashed password)
+  createdAt DateTime @default(now())
+  role      String   // บทบาท เช่น "admin" หรือ "superadmin" (ถ้าต้องการรองรับหลายระดับ)
+}
