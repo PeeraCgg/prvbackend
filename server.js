@@ -20,12 +20,12 @@ app.use(cors());
 
 // Serve static files
 const __dirname = path.resolve(); // ใช้ path.resolve() เพื่อกำหนด __dirname
-app.use(express.static(path.join(__dirname, 'dist'))); // ให้ Express เสิร์ฟไฟล์จากโฟลเดอร์ dist
+app.use(express.static(path.join(__dirname, '../Frontend/dist'))); // ให้ Express เสิร์ฟไฟล์จากโฟลเดอร์ dist
 
 
 // Fallback route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html')); // ส่งกลับ index.html สำหรับทุก request ที่ไม่ตรงกับ API
+  res.sendFile(path.join(__dirname, '../Frontend/dist', 'index.html'));
 });
 //api way
 app.use('/user', AuthRoutes)
