@@ -18,15 +18,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // cors
 app.use(cors());
 
-// Serve static files
-const __dirname = path.resolve(); // ใช้ path.resolve() เพื่อกำหนด __dirname
-app.use(express.static(path.join(__dirname, '/Frontend/dist'))); // ให้ Express เสิร์ฟไฟล์จากโฟลเดอร์ dist
-
-
-// Fallback route for SPA
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'Frontend','dist', 'index.html'));
-});
 //api way
 app.use('/user', AuthRoutes)
 // listen on port
