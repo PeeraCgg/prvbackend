@@ -1,5 +1,10 @@
 import express from 'express';
-import { requestOtp, verifyOtp } from "../middleware/verifyOtp.js";
+import { requestOtp,
+         verifyOtp,
+         updateStatusAfterOtp
+      
+         
+} from "../middleware/verifyOtp.js";
 import {
     addOrUpdateUser,
     getUser,
@@ -35,10 +40,107 @@ import {  adminLogin,
           getAllProducts
 
 } from '../middleware/approveUser.js'
+import { body, validationResult } from 'express-validator';
+import thaibulksmsApi from 'thaibulksms-api';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const options = {
+   apiKey: process.env.API_KEY,
+   apiSecret: process.env.API_SECRET,
+};
+
+const otp = thaibulksmsApi.otp(options);
 const AuthRoutes = express.Router();
+
+AuthRoutes.post('/verify-line-user', body('line_user_id').notEmpty(), async (req, res) => {
+   const errors = validationResult(req);
+   if (!errors.isEmpty()) {
+       return res.status(400).json({ errors: errors.array() });
+   }
+
+   try {
+       const { line_user_id } = req.body;
+
+       // ค้นหา user ในฐานข้อมูล
+       const user = await prisma.prv_Users.findUnique({
+           where: { lineUserId: line_user_id },
+       });
+
+       if (!user) {
+           return res.status(404).json({ error: 'User not found. Please log in again.' });
+       }
+
+       const phoneNumber = user.mobile; // สมมติใช้ `mobile` เป็นเบอร์โทรศัพท์
+
+       if (!phoneNumber) {
+           return res.status(400).json({ error: 'No phone number found for this user. Please update your profile.' });
+       }
+
+       return res.status(200).json({
+           message: 'User verified successfully',
+           phone_number: phoneNumber,
+       });
+   } catch (error) {
+       console.error('Error in verify-line-user:', error);
+       return res.status(500).json({
+           message: 'Server error while verifying user',
+           error: error.message || error,
+       });
+   }
+});
+
+AuthRoutes.post('/request-otp', body('phone_number').isMobilePhone('th-TH'), async (req, res) => {
+
+   const errors = validationResult(req);
+   if (!errors.isEmpty()) {
+       return res.status(400).json({ errors: errors.array() });
+   }
+
+   try {
+
+       let phoneNumber = req.body.phone_number
+       const response = await otp.request(phoneNumber)
+       res.json(response.data)
+
+   } catch (error) {
+       return res.status(500).json({ errors: error });
+   }
+
+})
+
+AuthRoutes.post('/verify-otp', body('token').notEmpty(), body('otp_code').notEmpty(), async (req, res) => {
+   const errors = validationResult(req);
+   if (!errors.isEmpty()) {
+       return res.status(400).json({ errors: errors.array() });
+   }
+
+   try {
+
+       let token = req.body.token
+       let otpCode = req.body.otp_code
+       const response = await otp.verify(token, otpCode)
+       res.json(response.data)
+
+   } catch (error) {
+       return res.status(500).json({ errors: error });
+   }
+})
+AuthRoutes.post('/update-status-after-otp', updateStatusAfterOtp);
+
+
+
+
+
+
+
+
+
 // verify
 AuthRoutes.post("/requestotp-e", requestOtp);  // requestotp email
 AuthRoutes.post("/verifyotp-e",  verifyOtp);   // verify otpemail
+
 // basic information
 AuthRoutes.post('/login-line', loginLine);  // login line and save userid
 AuthRoutes.post('/add-or-update', addOrUpdateUser);  // add  or update new user 

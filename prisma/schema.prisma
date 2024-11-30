@@ -10,7 +10,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("EXTERNAL_URL") //  DATABASE_URL ใช้เชื่อม local
+  url      = env("DATABASE_URL") //  DATABASE_URL ใช้เชื่อม local and external by render
 }
 
 model Prv_Users {

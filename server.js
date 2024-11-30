@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import AuthRoutes from './routes/auth.routes.js';
-import path from 'path';
+
 
 dotenv.config();
 const app = express();

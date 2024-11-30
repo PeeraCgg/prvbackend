@@ -1,8 +1,10 @@
 import { generateOtp } from '../utils/generateOtp.js';// ฟังก์ชันสร้าง OTP และบันทึกลงใน DB
 import { sendOtpEmail } from '../utils/emailService.js';  // ฟังก์ชันส่งอีเมล OTP
 import { PrismaClient } from '@prisma/client';
+
 const prisma = new PrismaClient();
-// ค้างการเอา  verifyotp มาอยู่ในน
+
+
 export const requestOtp = async (req, res) => {
   try {
     const { lineUserId } = req.body;
@@ -128,6 +130,70 @@ export const verifyOtp = async (req, res) => {
   } catch (error) {
     console.error('Error in verifyOtp:', error);
     res.status(500).json({ error: 'Server Error' });
+  }
+};
+
+export const updateStatusAfterOtp = async (req, res) => {
+  try {
+    const { lineUserId } = req.body; // ดึง lineUserId จาก Request Body
+
+    // ตรวจสอบว่า lineUserId มีค่าและไม่เป็นค่าว่าง
+    if (!lineUserId || typeof lineUserId !== 'string' || lineUserId.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Line User ID is required' });
+    }
+
+    console.log("Received lineUserId:", lineUserId);
+
+    // ค้นหา User ในฐานข้อมูล
+    const user = await prisma.prv_Users.findUnique({
+      where: { lineUserId },
+    });
+
+    // ตรวจสอบว่าพบ User หรือไม่
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    console.log("User found:", user);
+
+    // ตรวจสอบข้อมูลพื้นฐานของผู้ใช้
+    if (!user.firstname || !user.lastname || !user.mobile || !user.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'User must complete basic information before updating status.',
+      });
+    }
+
+    // อัปเดตสถานะใน Prv_Status เป็น 3
+    const status = await prisma.prv_Status.upsert({
+      where: { userId: user.id }, // ค้นหาตาม userId
+      update: { status: 3 }, // หากพบ ให้เปลี่ยนสถานะเป็น 3
+      create: { userId: user.id, status: 3 }, // หากไม่พบ ให้สร้างสถานะใหม่
+    });
+
+    console.log("User status updated to 3:", status);
+
+    // อัปเดต isVerified ใน Prv_Users
+    const updatedUser = await prisma.prv_Users.update({
+      where: { lineUserId },
+      data: { isVerified: true },
+    });
+
+    console.log("User isVerified updated:", updatedUser);
+
+    // ส่ง Response กลับ
+    res.status(200).json({
+      success: true,
+      message: 'User status updated successfully!',
+      userId: user.id,
+      status,
+    });
+  } catch (error) {
+    console.error('Error updating status after OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update status. Please try again.',
+    });
   }
 };
 
